@@ -190,7 +190,7 @@ def request(host, path, api_key, url_params=None):
 
     response = requests.request('GET', url, headers=headers, params=url_params)
     if not response:
-        return resopnse
+        return response
 
     sleep_cnt = 0
     'https://www.yelp.com/developers/faq'
