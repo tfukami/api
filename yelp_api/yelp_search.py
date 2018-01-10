@@ -26,6 +26,7 @@ import re
 from logging import getLogger,Formatter,StreamHandler,FileHandler,DEBUG
 import MySQLdb
 import time
+import pandas as pd
 
 from urllib.error import HTTPError
 from urllib.parse import quote
@@ -63,6 +64,7 @@ BUSINESS_PATH = '/v3/businesses/'  # Business ID will come after slash.
 # Defaults for our simple example.
 DEFAULT_TERM = 'dinner'
 DEFAULT_LOCATION = 'San Francisco, CA'
+RADIUS = 5000
 SEARCH_LIMIT = 50
 SORT_BY = 'rating'
 LOCALE = 'jp_JP'
@@ -187,11 +189,21 @@ def request(host, path, api_key, url_params=None):
     logger.debug('Querying {0} ...'.format(url))
 
     response = requests.request('GET', url, headers=headers, params=url_params)
+    if not response:
+        return resopnse
 
+    sleep_cnt = 0
+    'https://www.yelp.com/developers/faq'
+    while(response.status_code==429):
+        logger.warning('Too Many Requests. Wait in {} hours.'.format(24-sleep_cnt))
+        time.sleep(60*60)
+        response = requests.request('GET', url, headers=headers, params=url_params)
+        sleep_cnt += 1
+        
     return response.json()
 
 
-def search(api_key, term, location, offset):
+def search(api_key, term, location, latitude, longitude, offset):
     """Query the Search API by a search term and location.
 
     Args:
@@ -205,9 +217,13 @@ def search(api_key, term, location, offset):
         'term': term.replace(' ', '+'),
         'location': location.replace(' ', '+'),
         #'locale': LOCALE,
+        'latitude': latitude,
+        'longitude': longitude,
+        'sort_by': SORT_BY,
         'limit': SEARCH_LIMIT,
         'offset': offset
     }
+
     return request(API_HOST, SEARCH_PATH, api_key, url_params=url_params)
 
 
@@ -225,18 +241,21 @@ def get_business(api_key, business_id):
     return request(API_HOST, business_path, api_key)
 
 
-def query_api(term, location):
+def query_api(term, location, latitude, longitude):
     """Queries the API by the input values from the user.
 
     Args:
         term (str): The search term to query.
         location (str): The location of the business to query.
     """
-    response = search(API_KEY, term, location, 0)
+    response = search(API_KEY, term, location, latitude, longitude, 0)
+    if not response:
+        return
+
     businesses = response.get('businesses')
     if not businesses:
-        logger.info('response contents: {}'.format(response.text))
-        logger.info('response header: {}'.format(response.headers))
+        logger.info('response contents: {}'.format(response))
+        # logger.info('response header: {}'.format(response.headers))
 
     dh = DataHandle()
     dh.start_db()
@@ -311,6 +330,11 @@ def query_api(term, location):
                 item['price'] = None
                 logger.warning('Item has no price in {}'.format(bus['id']))
 
+            if term:
+                input_term = term
+            else:
+                input_term = str(latitude) + '_' + str(longitude)
+
             dh.insert_item(
                     {
                         'business_id': bus['id']\
@@ -326,13 +350,13 @@ def query_api(term, location):
                         , 'review_count': item['review_count']\
                         , 'rating': item['rating']\
                         , 'price': item['price']\
-                        , 'search_term': term\
+                        , 'search_term': input_term\
                         , 'search_location': location\
                         }
                     )
 
         off += SEARCH_LIMIT
-        response = search(API_KEY, term, location, off)
+        response = search(API_KEY, term, location, latitude, longitude, off)
         businesses = response.get('businesses')
 
     dh.close_db()
@@ -364,9 +388,14 @@ def main():
 
     try:
         #query_api(input_values.term, input_values.location)
-        for loc in temp_item:
+        '''for loc in temp_item:
             logger.debug('search-area:{}'.format(loc))
             query_api('', loc)
+        '''
+        for latlon in pd.read_csv('geo_locations_rd2_20180110.csv')\
+                [['latitude', 'longitude']].values:
+                logger.debug('search-latlon:{}_{}'.format(latlon[0], latlon[1]))
+                query_api('', '', latlon[0], latlon[1])
     except HTTPError as error:
         sys.exit(
             'Encountered HTTP error {0} on {1}:\n {2}\nAbort program.'.format(
