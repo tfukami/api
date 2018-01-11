@@ -361,7 +361,12 @@ def query_api(term, location, latitude, longitude):
 
         off += SEARCH_LIMIT
         response = search(API_KEY, term, location, latitude, longitude, off)
-        businesses = response.get('businesses')
+        try:
+            businesses = response.get('businesses')
+        except:
+            logger.warning('response has error in {}'.format(response))
+            return 
+            
 
     dh.close_db()
 
