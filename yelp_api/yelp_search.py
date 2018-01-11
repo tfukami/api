@@ -252,10 +252,14 @@ def query_api(term, location, latitude, longitude):
     if not response:
         return
 
-    businesses = response.get('businesses')
-    if not businesses:
-        logger.info('response contents: {}'.format(response))
-        # logger.info('response header: {}'.format(response.headers))
+    try:
+        businesses = response.get('businesses')
+        if not businesses:
+            logger.info('response contents: {}'.format(response))
+            # logger.info('response header: {}'.format(response.headers))
+    except:
+        logger.warning('some error happen in response.get')
+        return
 
     dh = DataHandle()
     dh.start_db()
