@@ -189,16 +189,17 @@ def request(host, path, api_key, url_params=None):
     logger.debug('Querying {0} ...'.format(url))
 
     response = requests.request('GET', url, headers=headers, params=url_params)
-    if not response:
-        return response
-
     sleep_cnt = 0
     'https://www.yelp.com/developers/faq'
     while(response.status_code==429):
         logger.warning('Too Many Requests. Wait in {} hours.'.format(24-sleep_cnt))
+        print(response.status_code)
         time.sleep(60*60)
         response = requests.request('GET', url, headers=headers, params=url_params)
         sleep_cnt += 1
+
+    if not response:
+        return response
         
     return response.json()
 
