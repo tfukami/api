@@ -163,6 +163,7 @@ class DataHandle():
                     )
             self.c.execute(insert_query, insert_item)
             self.conn.commit()
+            self.conn.close()
         else:
             logger.warning('Item has not JP info:{}'.format(item['business_id']))
 
@@ -371,7 +372,7 @@ def query_api(term, location, latitude, longitude):
             return 
             
 
-    dh.close_db()
+    # dh.close_db()
 
 
 def main():
