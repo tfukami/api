@@ -70,16 +70,15 @@ SORT_BY = 'rating'
 LOCALE = 'jp_JP'
 
 class DataHandle():
+    params = {
+            'host':'localhost',
+            'db':'yelp',
+            'user':'data_writer',
+            'passwd':os.environ.get('MYSQL_PASSWORD'),
+            'charset':'utf8mb4',
+            }
     def start_db(self):
-        params = {
-                'host':'localhost',
-                'db':'yelp',
-                'user':'data_writer',
-                'passwd':os.environ.get('MYSQL_PASSWORD'),
-                'charset':'utf8mb4',
-                }
-
-        self.conn = MySQLdb.connect(**params)
+        self.conn = MySQLdb.connect(**self.params)
         self.c = self.conn.cursor()
         self.c.execute('''
             create table if not exists raw_data(
@@ -103,6 +102,7 @@ class DataHandle():
             )
         ''')
         self.conn.commit()
+        self.conn.close()
 
 
     def close_db(self):
@@ -118,6 +118,8 @@ class DataHandle():
                 'select business_id from raw_data where business_id = "{}"'\
                 .format(item['business_id'])
         logger.debug('SQL:{}'.format(check_sql))
+        self.conn = MySQLdb.connect(**self.params)
+        self.c = self.conn.cursor()
         self.c.execute(check_sql)
         self.conn.commit()
 
@@ -402,7 +404,7 @@ def main():
             logger.debug('search-area:{}'.format(loc))
             query_api('', loc)
         '''
-        for latlon in pd.read_csv('geo_locations_rd2_20180110.csv')\
+        for latlon in pd.read_csv('geo_locations_rd2_20180117.csv')\
                 [['latitude', 'longitude']].values:
                 logger.debug('search-latlon:{}_{}'.format(latlon[0], latlon[1]))
                 query_api('', '', latlon[0], latlon[1])
